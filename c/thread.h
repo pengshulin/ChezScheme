@@ -47,8 +47,17 @@ typedef void s_thread_rv_t;
 #define s_thread_cond_init(cond) InitializeConditionVariable(cond)
 #define s_thread_cond_signal(cond) (WakeConditionVariable(cond), 0)
 #define s_thread_cond_broadcast(cond) (WakeAllConditionVariable(cond), 0)
-#define s_thread_cond_wait(cond, mutex) (SleepConditionVariableCS(cond, mutex, INFINITE) == 0 ? EINVAL : 0)
 #define s_thread_cond_destroy(cond) (0)
+
+static inline int s_thread_cond_wait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int timeout) {
+  if (SleepConditionVariableCS(cond, mutex, timeout)) {
+    return 0;
+  } else if (GetLastError() == ERROR_TIMEOUT) {
+    return ETIMEDOUT;
+  } else {
+    return EINVAL;
+  }
+}
 
 #else /* FEATURE_WINDOWS */
 

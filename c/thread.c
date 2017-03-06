@@ -306,7 +306,7 @@ s_thread_cond_t *S_make_condition() {
   return c;
 }
 
-void S_condition_wait(c, m) s_thread_cond_t *c; scheme_mutex_t *m; {
+IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; int t; {
   ptr tc = get_thread_context();
   s_thread_t self = s_thread_self();
   iptr count;
@@ -323,7 +323,7 @@ void S_condition_wait(c, m) s_thread_cond_t *c; scheme_mutex_t *m; {
   }
 
   m->count = 0;
-  status = s_thread_cond_wait(c, &m->pmutex);
+  status = s_thread_cond_wait(c, &m->pmutex, t);
   m->owner = self;
   m->count = 1;
 
@@ -331,7 +331,11 @@ void S_condition_wait(c, m) s_thread_cond_t *c; scheme_mutex_t *m; {
     reactivate_thread(tc)
   }
 
-  if (status != 0) {
+  if (status == 0) {
+    return 1;
+  } else if (status == ETIMEDOUT) {
+    return 0;
+  } else {
     S_error1("condition-wait", "failed: ~a", S_strerror(status));
   }
 }

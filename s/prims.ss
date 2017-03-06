@@ -1426,7 +1426,7 @@
                   scheme-object))
 (define mr (foreign-procedure "(cs)mutex_release" (scheme-object) void))
 (define mc (foreign-procedure "(cs)make_condition" () scheme-object))
-(define cw (foreign-procedure "(cs)condition_wait" (scheme-object scheme-object) void))
+(define cw (foreign-procedure "(cs)condition_wait" (scheme-object scheme-object unsigned-32) boolean))
 (define cb (foreign-procedure "(cs)condition_broadcast" (scheme-object) void))
 (define cs (foreign-procedure "(cs)condition_signal" (scheme-object) void))
 
@@ -1486,12 +1486,16 @@
     ($condition? x)))
 
 (set! condition-wait
-  (lambda (c m)
+  (case-lambda
+   [(c m) (condition-wait c m -1)]
+   [(c m t)
     (unless (thread-condition? c)
       ($oops 'condition-wait "~s is not a condition" c))
     (unless (mutex? m)
       ($oops 'condition-wait "~s is not a mutex" m))
-    (cw ($condition-addr c) ($mutex-addr m))))
+    (unless ($integer-32? t)
+      ($oops 'condition-wait "~s is not a 32-bit integer" t))
+    (cw ($condition-addr c) ($mutex-addr m) t)]))
 
 (set! condition-broadcast
   (lambda (c)
