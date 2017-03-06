@@ -47,10 +47,12 @@ typedef void s_thread_rv_t;
 #define s_thread_cond_init(cond) InitializeConditionVariable(cond)
 #define s_thread_cond_signal(cond) (WakeConditionVariable(cond), 0)
 #define s_thread_cond_broadcast(cond) (WakeAllConditionVariable(cond), 0)
+#define s_thread_cond_wait(cond, mutex) (SleepConditionVariableCS(cond, mutex, INFINITE) == 0 ? EINVAL : 0)
 #define s_thread_cond_destroy(cond) (0)
 
-static inline int s_thread_cond_wait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int timeout) {
-  if (SleepConditionVariableCS(cond, mutex, timeout)) {
+static inline int s_thread_cond_timedwait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int typeno, struct timespec *tp) {
+  /* TODO: Implement */
+  if (SleepConditionVariableCS(cond, mutex, 0)) {
     return 0;
   } else if (GetLastError() == ERROR_TIMEOUT) {
     return ETIMEDOUT;
@@ -62,6 +64,7 @@ static inline int s_thread_cond_wait(s_thread_cond_t *cond, s_thread_mutex_t *mu
 #else /* FEATURE_WINDOWS */
 
 #include <pthread.h>
+#include <errno.h>
 
 typedef pthread_t s_thread_t;
 typedef pthread_key_t s_thread_key_t;
@@ -94,6 +97,22 @@ static inline int s_thread_create(void *(* start_routine)(void *), void *arg) {
 #define s_thread_cond_broadcast(cond) pthread_cond_broadcast(cond)
 #define s_thread_cond_wait(cond, mutex) pthread_cond_wait(cond, mutex)
 #define s_thread_cond_destroy(cond) pthread_cond_destroy(cond)
+
+static inline int s_thread_cond_timedwait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int typeno, struct timespec *tp) {
+  struct timespec abstime;
+  if (typeno == time_duration) {
+    if (clock_gettime(CLOCK_REALTIME, &abstime) != 0) return errno;
+    abstime.tv_sec = abstime.tv_sec + tp->tv_sec;
+    abstime.tv_nsec = abstime.tv_nsec + tp->tv_nsec;
+    if (abstime.tv_nsec >= 1000000000) {
+      abstime.tv_sec += 1;
+      abstime.tv_nsec -= 1000000000;
+    }
+    return pthread_cond_timedwait(cond, mutex, &abstime);
+  } else {
+    return pthread_cond_timedwait(cond, mutex, tp);
+  }
+}
 
 #endif /* FEATURE_WINDOWS */
 #endif /* FEATURE_PTHREADS */

@@ -306,10 +306,14 @@ s_thread_cond_t *S_make_condition() {
   return c;
 }
 
-IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; int t; {
+#define Srecord_ref(x,i) (((ptr *)((uptr)(x)+record_data_disp))[i])
+
+IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; ptr t; {
   ptr tc = get_thread_context();
   s_thread_t self = s_thread_self();
   iptr count;
+  INT typeno;
+  struct timespec timeout;
   INT status;
 
   if ((count = m->count) == 0 || !s_thread_equal(m->owner, self))
@@ -318,12 +322,20 @@ IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; int t; {
   if (count != 1)
     S_error1("condition-wait", "mutex ~s is recursively locked", m);
 
+  if (t != Sfalse) {
+    /* Keep in sync with ts record in s/date.ss */
+    typeno = Sinteger_value(Srecord_ref(t,0));
+    timeout.tv_sec = Sinteger_value(Scar(Srecord_ref(t,1)));
+    timeout.tv_nsec = Sinteger_value(Scdr(Srecord_ref(t,1)));
+  }
+
   if (c == &S_collect_cond || DISABLECOUNT(tc) == 0) {
     deactivate_thread(tc)
   }
 
   m->count = 0;
-  status = s_thread_cond_wait(c, &m->pmutex, t);
+  status = (t == Sfalse) ? s_thread_cond_wait(c, &m->pmutex) :
+             s_thread_cond_timedwait(c, &m->pmutex, typeno, &timeout);
   m->owner = self;
   m->count = 1;
 
@@ -337,6 +349,7 @@ IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; int t; {
     return 0;
   } else {
     S_error1("condition-wait", "failed: ~a", S_strerror(status));
+    return 0;
   }
 }
 #endif /* PTHREADS */

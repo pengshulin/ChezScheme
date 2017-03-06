@@ -203,7 +203,7 @@ extern void S_mutex_acquire PROTO((scheme_mutex_t *m));
 extern INT S_mutex_tryacquire PROTO((scheme_mutex_t *m));
 extern void S_mutex_release PROTO((scheme_mutex_t *m));
 extern s_thread_cond_t *S_make_condition PROTO((void));
-extern IBOOL S_condition_wait PROTO((s_thread_cond_t *c, scheme_mutex_t *m));
+extern IBOOL S_condition_wait PROTO((s_thread_cond_t *c, scheme_mutex_t *m, ptr t));
 #endif
 
 /* main.c */
