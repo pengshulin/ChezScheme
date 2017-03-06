@@ -313,7 +313,8 @@ IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; ptr t; {
   s_thread_t self = s_thread_self();
   iptr count;
   INT typeno;
-  struct timespec timeout;
+  long sec;
+  long nsec;
   INT status;
 
   if ((count = m->count) == 0 || !s_thread_equal(m->owner, self))
@@ -324,9 +325,9 @@ IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; ptr t; {
 
   if (t != Sfalse) {
     /* Keep in sync with ts record in s/date.ss */
-    typeno = Sinteger_value(Srecord_ref(t,0));
-    timeout.tv_sec = Sinteger_value(Scar(Srecord_ref(t,1)));
-    timeout.tv_nsec = Sinteger_value(Scdr(Srecord_ref(t,1)));
+    typeno = Sinteger32_value(Srecord_ref(t,0));
+    sec = Sinteger32_value(Scar(Srecord_ref(t,1)));
+    nsec = Sinteger32_value(Scdr(Srecord_ref(t,1)));
   }
 
   if (c == &S_collect_cond || DISABLECOUNT(tc) == 0) {
@@ -335,7 +336,7 @@ IBOOL S_condition_wait(c, m, t) s_thread_cond_t *c; scheme_mutex_t *m; ptr t; {
 
   m->count = 0;
   status = (t == Sfalse) ? s_thread_cond_wait(c, &m->pmutex) :
-             s_thread_cond_timedwait(c, &m->pmutex, typeno, &timeout);
+    s_thread_cond_timedwait(c, &m->pmutex, typeno, sec, nsec);
   m->owner = self;
   m->count = 1;
 

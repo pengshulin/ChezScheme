@@ -18,6 +18,7 @@
 #ifdef FEATURE_WINDOWS
 
 #include <process.h>
+#include <time.h>
 
 /* learned from http://locklessinc.com/articles/pthreads_on_windows/ which
  * Windows API types and functions to use to support mutexes and condition
@@ -50,9 +51,24 @@ typedef void s_thread_rv_t;
 #define s_thread_cond_wait(cond, mutex) (SleepConditionVariableCS(cond, mutex, INFINITE) == 0 ? EINVAL : 0)
 #define s_thread_cond_destroy(cond) (0)
 
-static inline int s_thread_cond_timedwait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int typeno, struct timespec *tp) {
-  /* TODO: Implement */
-  if (SleepConditionVariableCS(cond, mutex, 0)) {
+extern void s_gettime(INT typeno, struct timespec *tp);
+
+static inline int s_thread_cond_timedwait(s_thread_cond_t *cond, s_thread_mutex_t *mutex, int typeno, long sec, long nsec) {
+  if (typeno == time_utc) {
+    struct timespec now;
+    s_gettime(time_utc, &now);
+    sec -= (long)now.tv_sec;
+    nsec -= now.tv_nsec;
+    if (nsec < 0) {
+      sec -= 1;
+      nsec += 1000000000;
+    }
+  }
+  if (sec < 0) {
+    sec = 0;
+    nsec = 0;
+  }
+  if (SleepConditionVariableCS(cond, mutex, sec*1000 + nsec/1000000)) {
     return 0;
   } else if (GetLastError() == ERROR_TIMEOUT) {
     return ETIMEDOUT;
